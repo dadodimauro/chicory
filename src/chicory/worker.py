@@ -215,17 +215,36 @@ class Worker:
             >>> worker = Worker(app)
             >>> await worker.run()  # Blocks
         """
-        # Set up signal handlers
+        # Set up signal handlers (not supported on Windows with ProactorEventLoop)
         loop = asyncio.get_event_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, self._handle_shutdown)
+        signals_registered = False
+        try:
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                loop.add_signal_handler(sig, self._handle_shutdown)
+            signals_registered = True
+        except NotImplementedError:  # pragma: no cover
+            # Windows doesn't support signal handlers with ProactorEventLoop
+            logger.warning(
+                "Signal handlers not supported on this platform. "
+                "Use Ctrl+C or stop() method to terminate."
+            )
 
-        await self.start()
+        try:
+            await self.start()
 
-        # Wait for worker to stop
-        if self._consume_task:
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._consume_task
+            # Wait for worker to stop
+            if self._consume_task:
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._consume_task
+        except KeyboardInterrupt:  # pragma: no cover
+            # Handle Ctrl+C on Windows
+            logger.info("Keyboard interrupt received")
+            await self.stop()
+        finally:
+            # Clean up signal handlers if they were registered
+            if signals_registered:
+                for sig in (signal.SIGINT, signal.SIGTERM):
+                    loop.remove_signal_handler(sig)
 
     def _handle_shutdown(self) -> None:
         """Handle shutdown signal."""

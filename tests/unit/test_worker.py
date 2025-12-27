@@ -797,12 +797,32 @@ class TestWorkerRun:
     ) -> None:
         worker = Worker(app)
 
-        # Make broker.consume raise TypeError when called
+        # Mock _consume_loop to raise the error and cleanup like the real implementation
+        async def failing_consume_loop() -> None:
+            worker._running = False
+            raise RuntimeError("Very bad error")
+
+        worker._consume_loop = failing_consume_loop  # type: ignore
+
+        with pytest.raises(RuntimeError, match="Very bad error"):
+            await worker.run()
+
+        assert worker._running is False
+
+    async def test_exception_in_consume_loop(
+        self,
+        app: MagicMock,
+    ) -> None:
+        """Test exception handling in the actual consume loop."""
+        worker = Worker(app)
+
+        # Make broker.consume raise an exception
         app.broker.consume = MagicMock(side_effect=RuntimeError("Very bad error"))
 
         with pytest.raises(RuntimeError, match="Very bad error"):
             await worker.run()
 
+        # The _consume_loop's finally block sets _running to False
         assert worker._running is False
 
 
