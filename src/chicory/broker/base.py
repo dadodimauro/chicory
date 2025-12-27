@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from chicory.types import TaskMessage  # noqa: TC001
+from chicory.types import (  # noqa: TC001
+    BrokerStatus,
+    TaskMessage,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
-
-    from chicory.types import BrokerStatus
 
 DEFAULT_QUEUE = "default"
 
