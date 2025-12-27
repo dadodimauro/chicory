@@ -1,9 +1,12 @@
-from typing import TYPE_CHECKING, Any, Protocol
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from chicory.types import TaskResult, TaskState, WorkerStats
+    from chicory.types import BackendStatus, TaskResult, TaskState, WorkerStats
 
 
+@runtime_checkable
 class Backend(Protocol):
     """Protocol for result backends."""
 
@@ -47,4 +50,8 @@ class Backend(Protocol):
 
     async def cleanup_stale_workers(self, stale_seconds: int = 60) -> int:
         """Remove worker heartbeats older than stale_seconds. Returns count removed."""
+        raise NotImplementedError
+
+    async def healthcheck(self) -> BackendStatus:
+        """Check the health of the backend connection."""
         raise NotImplementedError

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import inspect
 import uuid
 from typing import TYPE_CHECKING, Any, Generic, get_type_hints
@@ -31,7 +33,9 @@ class Task(Generic[P, R]):  # noqa: UP046
         # Check if first param is TaskContext
         sig = inspect.signature(fn)
         params = list(sig.parameters.values())
-        self.has_context = len(params) > 0 and params[0].annotation is TaskContext
+        self.has_context = (
+            len(params) > 0 and get_type_hints(fn).get(params[0].name) is TaskContext
+        )
 
         # Build Pydantic model for validation
         self._input_model = self._build_input_model()
@@ -61,8 +65,10 @@ class Task(Generic[P, R]):  # noqa: UP046
 
         fields: dict[str, tuple[type, Any]] = {}
         for name, param in sig.parameters.items():
-            if name == "ctx" and param.annotation is TaskContext:
-                continue  # Skip context parameter
+            # Skip TaskContext parameter using resolved type hints
+            annotation = hints.get(name, Any)
+            if annotation is TaskContext:
+                continue
 
             annotation = hints.get(name, Any)
             if param.default is inspect.Parameter.empty:
@@ -78,11 +84,10 @@ class Task(Generic[P, R]):  # noqa: UP046
 
     def _validate_inputs(self, *args: P.args, **kwargs: P.kwargs) -> dict[str, Any]:
         """Validate and convert inputs using Pydantic."""
+        hints = get_type_hints(self.fn)
         sig = inspect.signature(self.fn)
         params = [
-            p
-            for p in sig.parameters.values()
-            if not (p.name == "ctx" and p.annotation is TaskContext)
+            p for p in sig.parameters.values() if hints.get(p.name) is not TaskContext
         ]
 
         # Bind args to parameter names

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock
@@ -7,6 +9,7 @@ from typer.testing import CliRunner
 
 from chicory.app import Chicory
 from chicory.cli.cli import _import_app, app
+from chicory.config import ChicoryConfig
 from chicory.types import BackendStatus, BrokerStatus, BrokerType, WorkerStats
 
 runner = CliRunner()
@@ -26,8 +29,9 @@ class MockBackend:
 
 
 class MockApp:
-    def __init__(self, backend: Any = None):
+    def __init__(self, backend: Any = None, config: ChicoryConfig | None = None):
         self.backend = backend
+        self.config = config or ChicoryConfig()
 
     async def connect(self):
         pass
@@ -36,22 +40,35 @@ class MockApp:
         pass
 
 
-class MockWorker:
+class MockWorkerConfig:
     def __init__(
         self,
-        app,
-        concurrency,
-        queue,
-        use_dead_letter_queue,
-        heartbeat_interval,
-        heartbeat_ttl,
+        concurrency: int = 1,
+        queue: str = "default",
+        use_dead_letter_queue: bool = False,
+        heartbeat_interval: float = 5.0,
+        heartbeat_ttl: int = 30,
     ):
-        self.app = app
         self.concurrency = concurrency
         self.queue = queue
         self.use_dead_letter_queue = use_dead_letter_queue
         self.heartbeat_interval = heartbeat_interval
         self.heartbeat_ttl = heartbeat_ttl
+
+
+class MockWorker:
+    def __init__(
+        self,
+        app,
+        config: MockWorkerConfig | None = None,
+    ):
+        self.app = app
+        self.config = config or MockWorkerConfig()
+        self.concurrency = self.config.concurrency
+        self.queue = self.config.queue
+        self.use_dead_letter_queue = self.config.use_dead_letter_queue
+        self.heartbeat_interval = self.config.heartbeat_interval
+        self.heartbeat_ttl = self.config.heartbeat_ttl
 
     async def run(self):
         pass
@@ -78,7 +95,18 @@ class TestWorker:
     def test_worker_command_execution(
         self, monkeypatch: pytest.MonkeyPatch, app_path: str
     ) -> None:
-        mock_app_instance = MockApp()
+        from chicory.config import WorkerConfig
+
+        # Create a config with worker settings
+        config = ChicoryConfig()
+        config.worker = WorkerConfig(
+            concurrency=2,
+            queue="test_queue",
+            heartbeat_interval=10.0,
+            heartbeat_ttl=60,
+            log_level="DEBUG",
+        )
+        mock_app_instance = MockApp(config=config)
 
         def mock_import_app(path: str) -> MockApp:
             return mock_app_instance
@@ -189,7 +217,7 @@ class TestWorkers:
             return
         assert "Active Workers:" in result.output
         for i in range(expected_output):
-            assert f"Worker: worker{i + 1}" in result.output
+            assert f"Worker ID: worker{i + 1}" in result.output
 
     def test_workers_command_execution_no_backend(
         self, monkeypatch: pytest.MonkeyPatch

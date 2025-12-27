@@ -1,18 +1,17 @@
+from __future__ import annotations
+
 import asyncio
 import importlib
 import importlib.metadata
 import logging
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import typer
 
 from chicory.app import Chicory
 from chicory.worker import Worker
-
-if TYPE_CHECKING:
-    from chicory.types import WorkerStats
 
 app = typer.Typer(help="Chicory task queue worker CLI.")
 
@@ -65,31 +64,38 @@ def worker(
 ) -> None:
     """
     Start a Chicory worker.
+
+    If no options are provided, the worker will use configuration from:
+    1. Environment variables (CHICORY_WORKER_*)
+    2. .env file
+    3. Default values
+
+    CLI options override environment/config settings.
     """
+    chicory_app = _import_app(app_path)
+
+    worker_config = chicory_app.config.worker
+
+    effective_log_level = log_level or worker_config.log_level
     logging.basicConfig(
-        level=getattr(logging, log_level, logging.INFO),
+        level=getattr(logging, effective_log_level, logging.INFO),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    app = _import_app(app_path)
-
     worker_instance = Worker(
-        app,
-        concurrency=concurrency,
-        queue=queue,
-        use_dead_letter_queue=use_dead_letter_queue,
-        heartbeat_interval=heartbeat_interval,
-        heartbeat_ttl=heartbeat_ttl,
+        chicory_app,
+        config=chicory_app.config.worker,
     )
 
     typer.echo(f"Starting Chicory worker for {app_path}")
-    typer.echo(f"Log Level: {log_level}")
-    typer.echo(f"Concurrency: {concurrency}")
-    typer.echo(f"Queue: {queue}")
-    typer.echo(f"Heartbeat Interval: {heartbeat_interval}s")
-    typer.echo(f"Heartbeat TTL: {heartbeat_ttl}s")
+    typer.echo(f"Log Level: {effective_log_level}")
+    typer.echo(f"Concurrency: {worker_instance.concurrency}")
+    typer.echo(f"Queue: {worker_instance.queue}")
+    typer.echo(f"Heartbeat Interval: {worker_instance.heartbeat_interval}s")
+    typer.echo(f"Heartbeat TTL: {worker_instance.heartbeat_ttl}s")
     typer.echo(
-        f"Dead Letter Queue: {'Enabled' if use_dead_letter_queue else 'Disabled'}"
+        "Dead Letter Queue: "
+        f"{'Enabled' if worker_instance.use_dead_letter_queue else 'Disabled'}"
     )
 
     asyncio.run(worker_instance.run())
@@ -105,18 +111,16 @@ def workers(
     List all active workers.
     """
 
-    app = _import_app(app_path)
+    chicory_app = _import_app(app_path)
 
     async def list_workers():
-        if not app.backend:
+        if not chicory_app.backend:
             typer.echo("No backend configured. Cannot retrieve worker info.")
             return
 
-        await app.connect()
-
+        await chicory_app.connect()
         try:
-            workers: list[WorkerStats] = await app.backend.get_active_workers()
-
+            workers = await chicory_app.backend.get_active_workers()
             if not workers:
                 typer.echo("No active workers found.")
                 return
@@ -127,21 +131,16 @@ def workers(
 
             for w in workers:
                 status_icon = "🟢" if w.is_running else "🔴"
-                typer.echo(f"{status_icon} Worker: {w.worker_id}")
-                typer.echo(f"   Hostname: {w.hostname} (PID: {w.pid})")
-                typer.echo(f"   Queue: {w.queue}")
-                typer.echo(f"   Uptime: {w.uptime_seconds:.1f}s")
-                typer.echo(
-                    f"   Tasks: {w.tasks_processed} processed, "
-                    f"{w.tasks_failed} failed, {w.active_tasks} active"
-                )
-                last_heartbeat_str = (
-                    w.last_heartbeat.isoformat() if w.last_heartbeat else "N/A"
-                )
-                typer.echo(f"   Last heartbeat: {last_heartbeat_str}")
+                typer.echo(f"{status_icon} Worker ID: {w.worker_id}")
+                typer.echo(f"  Hostname: {w.hostname}")
+                typer.echo(f"  PID: {w.pid}")
+                typer.echo(f"  Queue: {w.queue}")
+                typer.echo(f"  Started: {w.started_at}")
+                typer.echo(f"  Tasks Processed: {w.tasks_processed}")
+                typer.echo(f"  Tasks Failed: {w.tasks_failed}")
                 typer.echo()
         finally:
-            await app.disconnect()
+            await chicory_app.disconnect()
 
     asyncio.run(list_workers())
 
@@ -159,19 +158,21 @@ def cleanup(
     Cleanup stale worker records.
     """
 
-    app = _import_app(app_path)
+    chicory_app = _import_app(app_path)
 
     async def cleanup():
-        if not app.backend:
+        if not chicory_app.backend:
             typer.echo("No backend configured. Cannot clean up workers.")
             return
 
-        await app.connect()
+        await chicory_app.connect()
         try:
-            removed_count = await app.backend.cleanup_stale_workers(stale_seconds)
+            removed_count = await chicory_app.backend.cleanup_stale_workers(
+                stale_seconds
+            )
             typer.echo(f"Removed {removed_count} stale worker(s).")
         finally:
-            await app.disconnect()
+            await chicory_app.disconnect()
 
     asyncio.run(cleanup())
 

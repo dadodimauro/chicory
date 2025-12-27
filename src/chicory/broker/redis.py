@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import uuid
 from datetime import UTC, datetime
@@ -5,7 +7,8 @@ from typing import TYPE_CHECKING, Any
 
 import redis.asyncio as redis
 
-from chicory.types import DeliveryMode, TaskMessage
+from chicory.config import RedisBrokerConfig  # noqa: TC001
+from chicory.types import BrokerStatus, DeliveryMode, TaskMessage
 
 from .base import DEFAULT_QUEUE, Broker, DLQMessage, TaskEnvelope
 
@@ -20,24 +23,19 @@ class RedisBroker(Broker):
 
     def __init__(
         self,
-        redis_dsn: str,
+        config: RedisBrokerConfig,
         delivery_mode: DeliveryMode = DeliveryMode.AT_MOST_ONCE,
-        consumer_group: str = "chicory-workers",
         consumer_name: str | None = None,
-        block_ms: int = 5000,
-        claim_min_idle_ms: int = 30000,  # Reclaim messages idle for 30s
-        max_stream_length: int
-        | None = 100000,  # Trim stream to prevent unbounded growth
-        dlq_max_length: int | None = 10000,  # Max DLQ size
     ) -> None:
-        self.dsn = redis_dsn
+        self.dsn = config.dsn
+        self.consumer_group = config.consumer_group
+        self.block_ms = config.block_ms
+        self.claim_min_idle_ms = config.claim_min_idle_ms
+        self.max_stream_length = config.max_stream_length
+        self.dlq_max_length = config.dlq_max_length
+
         self.delivery_mode = delivery_mode
-        self.consumer_group = consumer_group
         self.consumer_name = consumer_name or f"worker-{uuid.uuid4().hex[:8]}"
-        self.block_ms = block_ms
-        self.claim_min_idle_ms = claim_min_idle_ms
-        self.max_stream_length = max_stream_length
-        self.dlq_max_length = dlq_max_length
 
         self._pool: redis.ConnectionPool | None = None
         self._client: redis.Redis | None = None
@@ -261,8 +259,6 @@ class RedisBroker(Broker):
                 await self._client.xack(
                     stream_key, self.consumer_group, envelope.delivery_tag
                 )
-
-    # ==================== DLQ Operations ====================
 
     async def move_to_dlq(
         self,
@@ -530,3 +526,14 @@ class RedisBroker(Broker):
             return count
         except redis.ResponseError:
             return 0
+
+    async def healthcheck(self) -> BrokerStatus:
+        """Check the health of the broker connection."""
+        if not self._client:
+            return BrokerStatus(connected=False, error="Not connected")
+
+        try:
+            await self._client.ping()  # type: ignore[unused-awaitable]
+            return BrokerStatus(connected=True)
+        except Exception as e:
+            return BrokerStatus(connected=False, error=str(e))

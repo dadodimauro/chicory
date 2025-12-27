@@ -1,4 +1,14 @@
+from __future__ import annotations
+
 from chicory.app import Chicory
+from chicory.backend import RedisBackend
+from chicory.broker import RedisBroker
+from chicory.config import (
+    ChicoryConfig,
+    RedisBackendConfig,
+    RedisBrokerConfig,
+    WorkerConfig,
+)
 from chicory.context import TaskContext
 from chicory.exceptions import (
     BackendNotConfiguredError,
@@ -23,6 +33,7 @@ from chicory.types import (
     ValidationMode,
     WorkerStats,
 )
+from chicory.worker import Worker
 
 __all__ = [
     "Chicory",
@@ -46,4 +57,11 @@ __all__ = [
     "RetryError",
     "MaxRetriesExceededError",
     "BackendNotConfiguredError",
+    "Worker",
+    "RedisBroker",
+    "RedisBackend",
+    "ChicoryConfig",
+    "WorkerConfig",
+    "RedisBackendConfig",
+    "RedisBrokerConfig",
 ]

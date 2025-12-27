@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -33,6 +35,18 @@ class TestChicoryAppCreateBroker:
         with pytest.raises(NotImplementedError):
             app._create_broker(broker_type="unknown_broker")  # ty:ignore[invalid-argument-type]
 
+    def test_create_broker_with_instance(self) -> None:
+        custom_broker = RedisBroker(
+            config=MagicMock(),
+        )
+        app = Chicory(
+            broker=custom_broker,
+            validation_mode=ValidationMode.STRICT,
+            delivery_mode=DeliveryMode.AT_LEAST_ONCE,
+        )
+        broker = app.broker
+        assert broker is custom_broker
+
 
 class TestChicoryAppCreateBackend:
     @pytest.mark.parametrize(
@@ -54,6 +68,19 @@ class TestChicoryAppCreateBackend:
         app = Chicory(broker=BrokerType.REDIS, backend=BackendType.REDIS)
         with pytest.raises(NotImplementedError):
             app._create_backend(backend_type="unknown_backend")  # ty:ignore[invalid-argument-type]
+
+    def test_create_backend_with_instance(self) -> None:
+        custom_backend = RedisBackend(
+            config=MagicMock(),
+        )
+        app = Chicory(
+            broker=MagicMock(spec=RedisBroker),
+            backend=custom_backend,
+            validation_mode=ValidationMode.STRICT,
+            delivery_mode=DeliveryMode.AT_LEAST_ONCE,
+        )
+        backend = app.backend
+        assert backend is custom_backend
 
 
 class TestChicoryAppTask:

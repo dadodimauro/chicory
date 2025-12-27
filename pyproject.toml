@@ -129,9 +129,7 @@ ignore = [
     "UP040", # new type alias syntax not supported by mypy yet
     "TD003", # allow TODO comments without issue references
 ]
-
-[tool.ruff.per-file-ignores]
-"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+per-file-ignores = { "__init__.py" = ["F401"] }
 
 [tool.ruff.format]
 quote-style = "double"

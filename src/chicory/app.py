@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, overload
 
 from chicory.backend import Backend, RedisBackend
 from chicory.broker import Broker, RedisBroker
@@ -22,35 +24,73 @@ if TYPE_CHECKING:
 
 
 class Chicory:
+    @overload
     def __init__(
         self,
         broker: BrokerType,
         backend: BackendType | None = None,
-        validation_mode: ValidationMode = ValidationMode.INPUTS,
+        config: ChicoryConfig | None = None,
+        validation_mode: ValidationMode | None = None,
+        delivery_mode: DeliveryMode | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        broker: Broker,
+        backend: Backend | None = None,
+        config: ChicoryConfig | None = None,
+        validation_mode: ValidationMode | None = None,
+        delivery_mode: DeliveryMode | None = None,
+    ) -> None: ...
+    def __init__(
+        self,
+        broker: BrokerType | Broker,
+        backend: BackendType | Backend | None = None,
+        config: ChicoryConfig | None = None,
+        validation_mode: ValidationMode | None = None,
+        delivery_mode: DeliveryMode | None = None,
     ) -> None:
-        self.config = ChicoryConfig()
-        self.config.validation_mode = validation_mode
+        self.config = config or ChicoryConfig()
+        if validation_mode is not None:
+            self.config.validation_mode = validation_mode
+        if delivery_mode is not None:
+            self.config.delivery_mode = delivery_mode
 
-        self._broker = self._create_broker(broker)
-        self._backend = self._create_backend(backend) if backend else None
+        if isinstance(broker, Broker):
+            self._broker = broker
+        else:
+            self._broker = self._create_broker(broker)
+
+        if isinstance(backend, Backend):
+            self._backend = backend
+        elif backend is not None:
+            self._backend = self._create_backend(backend)
+        else:
+            self._backend = None
 
         self._tasks: dict[str, Task[Any, Any]] = {}
-
         self.logger = logging.getLogger("chicory")
 
     def _create_broker(self, broker_type: BrokerType) -> Broker:
         match broker_type:
             case BrokerType.REDIS:
-                return RedisBroker(redis_dsn="redis://localhost:6379/0")
+                return RedisBroker(
+                    config=self.config.broker.redis,
+                    delivery_mode=self.config.delivery_mode,
+                )
             case _:
-                raise NotImplementedError
+                raise NotImplementedError(
+                    f"Broker type {broker_type} is not implemented"
+                )
 
     def _create_backend(self, backend_type: BackendType) -> Backend:
         match backend_type:
             case BackendType.REDIS:
-                return RedisBackend(redis_dsn="redis://localhost:6379/1")
+                return RedisBackend(config=self.config.backend.redis)
             case _:
-                raise NotImplementedError
+                raise NotImplementedError(
+                    f"Backend type {backend_type} is not implemented"
+                )
 
     @property
     def broker(self) -> Broker:
@@ -64,15 +104,15 @@ class Chicory:
         self,
         *,
         name: str | None = None,
-        delivery_mode: DeliveryMode = DeliveryMode.AT_LEAST_ONCE,
         retry_policy: RetryPolicy | None = None,
         ignore_result: bool = False,
         validation_mode: ValidationMode | None = None,
+        delivery_mode: DeliveryMode | None = None,
     ) -> Callable[[Callable[P, R]], Task[P, R]]:
         options = TaskOptions(
             name=name,
             retry_policy=retry_policy,
-            delivery_mode=delivery_mode,
+            delivery_mode=delivery_mode or self.config.delivery_mode,
             ignore_result=ignore_result,
             validation_mode=validation_mode or self.config.validation_mode,
         )
