@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from chicory.app import Chicory
 from chicory.backend import RedisBackend
 from chicory.broker import RedisBroker

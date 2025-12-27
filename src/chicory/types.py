@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import random
 from datetime import UTC, datetime  # noqa: TC003
 from enum import StrEnum
