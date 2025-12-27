@@ -1,11 +1,7 @@
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from chicory.types import (  # noqa: TC001
-    BackendStatus,
-    TaskResult,
-    TaskState,
-    WorkerStats,
-)
+if TYPE_CHECKING:
+    from chicory.types import BackendStatus, TaskResult, TaskState, WorkerStats
 
 
 @runtime_checkable
