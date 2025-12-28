@@ -82,14 +82,6 @@ class RedisBackend(Backend):
         if data:
             return TaskResult.model_validate_json(data)
 
-        # Check if we have just state
-        state: bytes | None = await self._client.get(self._state_key(task_id))
-        if state:
-            return TaskResult(
-                task_id=task_id,
-                state=TaskState(state.decode()),
-            )
-
         return None
 
     async def delete_result(self, task_id: str) -> None:

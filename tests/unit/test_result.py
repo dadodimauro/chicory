@@ -47,6 +47,22 @@ class TestAsyncResultGet:
         assert result == 42
         assert backend_mock.get_result.call_count == 3
 
+    async def test_get_successful_result_without_value(self) -> None:
+        backend_mock = AsyncMock(spec=Backend)
+        # return a result after two polls
+        backend_mock.get_result = AsyncMock(
+            side_effect=[
+                None,
+                Mock(state=TaskState.PENDING, result=None, error=None),
+                Mock(state=TaskState.SUCCESS, result=None, error=None),
+            ]
+        )
+        async_result = AsyncResult[None](task_id="test-task", backend=backend_mock)
+
+        result = await async_result.get(timeout=1.0, poll_interval=0.01)
+        assert result is None
+        assert backend_mock.get_result.call_count == 3
+
     async def test_get_failure_result(self) -> None:
         backend_mock = AsyncMock(spec=Backend)
         backend_mock.get_result = AsyncMock(
