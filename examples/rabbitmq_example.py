@@ -15,15 +15,16 @@ This example demonstrates all major features of Chicory:
 Prerequisites:
 --------------
 1. Redis server running on localhost:6379
-2. Install chicory: pip install chicory
+2. RabbitMQ server running on localhost:5672
+3. Install chicory: pip install chicory
 
 Usage:
 ------
 Terminal 1 - Start worker with DLQ enabled:
-    chicory worker examples.base:app --dlq
+    chicory worker examples.rabbitmq:app --dlq
 
 Terminal 2 - Run this example:
-    python examples/base.py
+    python examples/rabbitmq.py
 """
 
 import asyncio
@@ -54,7 +55,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 app = Chicory(
-    broker=BrokerType.REDIS,
+    broker=BrokerType.RABBITMQ,
     backend=BackendType.REDIS,
     validation_mode=ValidationMode.INPUTS,
 )
