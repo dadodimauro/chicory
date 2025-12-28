@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from chicory.logging import logger
 from chicory.types import BrokerStatus, DeliveryMode, TaskMessage
 
-from .base import DEFAULT_QUEUE, DLQMessage, TaskEnvelope
+from .base import DEFAULT_QUEUE, Broker, DLQMessage, TaskEnvelope
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -34,7 +34,7 @@ class DLQData(BaseModel):
     original_queue: str
 
 
-class RabbitMQBroker:
+class RabbitMQBroker(Broker):
     """RabbitMQ-based message broker with DLQ and configurable delivery semantics."""
 
     def __init__(

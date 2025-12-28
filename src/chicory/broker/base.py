@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING
 
 from chicory.types import TaskMessage  # noqa: TC001
 
@@ -34,40 +35,47 @@ class DLQMessage:
     retry_count: int
 
 
-@runtime_checkable
-class Broker(Protocol):
+class Broker(ABC):
     """Protocol for message brokers."""
 
+    @abstractmethod
     async def connect(self) -> None:
         """Establish connection to the broker."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     async def disconnect(self) -> None:
         """Close connection to the broker."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     async def publish(self, message: TaskMessage, queue: str = DEFAULT_QUEUE) -> None:
         """Publish a task message to the specified queue."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     def consume(self, queue: str = DEFAULT_QUEUE) -> AsyncGenerator[TaskEnvelope]:
         """Consume task messages from the specified queue."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     async def ack(self, envelope: TaskEnvelope, queue: str = DEFAULT_QUEUE) -> None:
         """Acknowledge successful processing of a message."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     async def nack(
         self, envelope: TaskEnvelope, requeue: bool = True, queue: str = DEFAULT_QUEUE
     ) -> None:
         """Negatively acknowledge a message, optionally requeuing it."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     def stop(self) -> None:
         """Stop consuming messages."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     async def move_to_dlq(
         self,
         envelope: TaskEnvelope,
@@ -75,16 +83,18 @@ class Broker(Protocol):
         queue: str = DEFAULT_QUEUE,
     ) -> None:
         """Move a failed message to the Dead Letter Queue."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     async def get_dlq_messages(
         self,
         queue: str = DEFAULT_QUEUE,
         count: int = 100,
     ) -> list[DLQMessage]:
         """Retrieve messages from the Dead Letter Queue."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     async def replay_from_dlq(
         self,
         message_id: str,
@@ -92,35 +102,40 @@ class Broker(Protocol):
         reset_retries: bool = True,
     ) -> bool:
         """Move a message from DLQ back to the main queue for reprocessing."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     async def delete_from_dlq(
         self,
         message_id: str,
         queue: str = DEFAULT_QUEUE,
     ) -> bool:
         """Permanently delete a message from the DLQ."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     async def get_dlq_count(self, queue: str = DEFAULT_QUEUE) -> int:
         """Get the number of messages in the Dead Letter Queue."""
-        raise NotImplementedError
+        ...
 
-    async def get_pending_count(self, queue: str = DEFAULT_QUEUE) -> int:
-        raise NotImplementedError
-
+    @abstractmethod
+    async def get_pending_count(self, queue: str = DEFAULT_QUEUE) -> int: ...
+    @abstractmethod
     async def get_queue_size(self, queue: str = DEFAULT_QUEUE) -> int:
         """Get number of ready messages in queue."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     async def get_consumer_count(self, queue: str = DEFAULT_QUEUE) -> int:
         """Get number of active consumers."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     async def purge_queue(self, queue: str = DEFAULT_QUEUE) -> int:
         """Delete all messages from queue. Returns count deleted."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     async def healthcheck(self) -> BrokerStatus:
         """Check the health of the broker connection."""
-        raise NotImplementedError
+        ...
