@@ -17,3 +17,9 @@ lint: ruff ty
 
 test: lint
 	uv run pytest -vv
+
+test-fast: lint
+	uv run pytest -vv -m "not slow"
+
+test-slow: lint
+	uv run pytest -vv -m "slow"

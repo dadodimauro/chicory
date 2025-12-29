@@ -726,6 +726,7 @@ class TestWorkerStartStop:
         app.broker.stop.assert_called_once()
         app.disconnect.assert_awaited_once()
 
+    @pytest.mark.slow
     async def test_stop_consume_task_timeout(
         self,
         app: MagicMock,

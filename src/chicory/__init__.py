@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from chicory.app import Chicory
-from chicory.backend import RedisBackend
-from chicory.broker import RedisBroker
 from chicory.config import (
     ChicoryConfig,
     RedisBackendConfig,
@@ -58,10 +56,28 @@ __all__ = [
     "MaxRetriesExceededError",
     "BackendNotConfiguredError",
     "Worker",
-    "RedisBroker",
-    "RedisBackend",
     "ChicoryConfig",
     "WorkerConfig",
     "RedisBackendConfig",
     "RedisBrokerConfig",
 ]
+
+try:
+    from chicory.broker.rabbitmq import RabbitMQBroker
+
+    __all__.append("RabbitMQBroker")
+except ImportError:
+    pass
+
+try:
+    from chicory.backend.redis import RedisBackend
+    from chicory.broker.redis import RedisBroker
+
+    __all__.extend(
+        [
+            "RedisBroker",
+            "RedisBackend",
+        ]
+    )
+except ImportError:
+    pass

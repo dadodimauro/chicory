@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, overload
 
-from chicory.backend import Backend, RedisBackend
-from chicory.broker import Broker, RabbitMQBroker, RedisBroker
+from chicory.backend import Backend
+from chicory.broker import Broker
 from chicory.config import ChicoryConfig
 from chicory.exceptions import TaskNotFoundError
 from chicory.task import Task
@@ -74,11 +74,15 @@ class Chicory:
     def _create_broker(self, broker_type: BrokerType) -> Broker:
         match broker_type:
             case BrokerType.REDIS:
+                from chicory.broker import RedisBroker
+
                 return RedisBroker(
                     config=self.config.broker.redis,
                     delivery_mode=self.config.delivery_mode,
                 )
             case BrokerType.RABBITMQ:
+                from chicory.broker import RabbitMQBroker
+
                 return RabbitMQBroker(
                     config=self.config.broker.rabbitmq,
                     delivery_mode=self.config.delivery_mode,
@@ -91,6 +95,8 @@ class Chicory:
     def _create_backend(self, backend_type: BackendType) -> Backend:
         match backend_type:
             case BackendType.REDIS:
+                from chicory.backend import RedisBackend
+
                 return RedisBackend(config=self.config.backend.redis)
             case _:
                 raise NotImplementedError(

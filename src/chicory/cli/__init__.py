@@ -1,5 +1,14 @@
 from __future__ import annotations
 
-from .cli import app
+__all__ = []
 
-__all__ = ["app"]
+try:
+    from .cli import app
+
+    __all__.extend(["app"])
+except ImportError:
+    raise RuntimeError(
+        "Chicory CLI is not installed. "
+        "Please install it to it using 'pip install chicory[cli]' "
+        "or with 'pip install chicory[all]'."
+    ) from None
