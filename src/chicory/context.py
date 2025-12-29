@@ -19,7 +19,7 @@ class TaskContext:
     max_retries: int
     retry_policy: RetryPolicy | None = field(default=None, repr=False)
 
-    async def retry(
+    def retry(
         self,
         countdown: float | None = None,
         exc: Exception | None = None,
@@ -63,7 +63,7 @@ class TaskContext:
             countdown=countdown,
         )
 
-    async def fail(self, exc: Exception) -> NoReturn:
+    def fail(self, exc: Exception) -> NoReturn:
         """Explicitly fail the task (will be moved to DLQ)."""
         raise exc
 

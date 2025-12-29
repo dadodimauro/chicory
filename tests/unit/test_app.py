@@ -103,7 +103,7 @@ class TestChicoryAppTask:
         "broker_type",
         [BrokerType.REDIS, BrokerType.RABBITMQ],
     )
-    def task_registration_with_options(self, broker_type: BrokerType) -> None:
+    def test_task_registration_with_options(self, broker_type: BrokerType) -> None:
         app = Chicory(broker=broker_type)
 
         @app.task(

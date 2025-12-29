@@ -20,10 +20,10 @@ Prerequisites:
 Usage:
 ------
 Terminal 1 - Start worker with DLQ enabled:
-    chicory worker examples.redis:app --dlq
+    chicory worker examples.redis_example:app --dlq
 
 Terminal 2 - Run this example:
-    python examples/redis.py
+    python examples/redis_example.py
 """
 
 import asyncio
@@ -136,10 +136,10 @@ async def retry_with_context(ctx: TaskContext, value: int) -> int:
             logger.warning(
                 f"Negative value, retrying... ({ctx.remaining_retries} left)"
             )
-            await ctx.retry(countdown=1.0)  # Custom retry delay
+            ctx.retry(countdown=1.0)  # Custom retry delay
         else:
             logger.error("Max retries reached, failing task")
-            await ctx.fail(ValueError("Value must be positive"))
+            ctx.fail(ValueError("Value must be positive"))
 
     return value * 2
 

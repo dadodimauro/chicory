@@ -7,9 +7,8 @@ from chicory.exceptions import RetryError
 from chicory.types import RetryBackoff, RetryPolicy
 
 
-@pytest.mark.asyncio
 class TestTaskContextRetry:
-    async def test_retry_within_max_retries(self) -> None:
+    def test_retry_within_max_retries(self) -> None:
         context = TaskContext(
             task_id="test-task",
             task_name="test-task-name",
@@ -17,12 +16,12 @@ class TestTaskContextRetry:
             max_retries=3,
         )
         with pytest.raises(RetryError) as exc_info:
-            await context.retry(countdown=5.0)
+            context.retry(countdown=5.0)
         assert exc_info.value.retries == 1
         assert exc_info.value.max_retries == 3
         assert exc_info.value.countdown == 5.0
 
-    async def test_retry_exception_not_retryable(self) -> None:
+    def test_retry_exception_not_retryable(self) -> None:
         class NonRetryableError(Exception):
             pass
 
@@ -41,10 +40,10 @@ class TestTaskContextRetry:
         )
 
         with pytest.raises(NonRetryableError) as exc_info:
-            await context.retry(exc=NonRetryableError("Not retryable"))
+            context.retry(exc=NonRetryableError("Not retryable"))
         assert str(exc_info.value) == "Not retryable"
 
-    async def test_retry_exception_retryable(self) -> None:
+    def test_retry_exception_retryable(self) -> None:
         class RetryableError(Exception):
             pass
 
@@ -63,11 +62,11 @@ class TestTaskContextRetry:
         )
 
         with pytest.raises(RetryError) as exc_info:
-            await context.retry(exc=RetryableError("Retryable"))
+            context.retry(exc=RetryableError("Retryable"))
         assert exc_info.value.retries == 1
         assert exc_info.value.max_retries == 3
 
-    async def test_retry_calculates_countdown_from_policy(self) -> None:
+    def test_retry_calculates_countdown_from_policy(self) -> None:
         retry_policy = RetryPolicy(
             max_retries=5,
             retry_delay=2.0,
@@ -84,12 +83,12 @@ class TestTaskContextRetry:
         )
 
         with pytest.raises(RetryError) as exc_info:
-            await context.retry()
+            context.retry()
         assert exc_info.value.retries == 2
         assert exc_info.value.max_retries == 5
         assert exc_info.value.countdown == 6.0  # 3rd attempt => 3 * 2.0
 
-    async def test_retry_exceeds_max_retries(self) -> None:
+    def test_retry_exceeds_max_retries(self) -> None:
         context = TaskContext(
             task_id="test-task",
             task_name="test-task-name",
@@ -97,13 +96,12 @@ class TestTaskContextRetry:
             max_retries=3,
         )
         with pytest.raises(Exception) as exc_info:
-            await context.retry()
+            context.retry()
         assert "exceeded max retries" in str(exc_info.value)
 
 
-@pytest.mark.asyncio
 class TestTaskContextFail:
-    async def test_fail_raises_exception(self) -> None:
+    def test_fail_raises_exception(self) -> None:
         context = TaskContext(
             task_id="test-task",
             task_name="test-task-name",
@@ -112,7 +110,7 @@ class TestTaskContextFail:
         )
         test_exception = ValueError("Explicit failure")
         with pytest.raises(ValueError) as exc_info:
-            await context.fail(test_exception)
+            context.fail(test_exception)
         assert str(exc_info.value) == "Explicit failure"
 
     @pytest.mark.parametrize(
@@ -126,7 +124,7 @@ class TestTaskContextFail:
             ),
         ],
     )
-    async def test_fail_raises_various_exceptions(self, exc_type, exc_message) -> None:
+    def test_fail_raises_various_exceptions(self, exc_type, exc_message) -> None:
         context = TaskContext(
             task_id="test-task",
             task_name="test-task-name",
@@ -135,7 +133,7 @@ class TestTaskContextFail:
         )
         test_exception = exc_type(exc_message)
         with pytest.raises(exc_type) as exc_info:
-            await context.fail(test_exception)
+            context.fail(test_exception)
         assert str(exc_info.value) == exc_message
 
 

@@ -254,7 +254,6 @@ class RabbitMQBroker(Broker):
                 else aio_pika.DeliveryMode.NOT_PERSISTENT,
                 message_id=message.id,
                 timestamp=datetime.now(UTC),
-                # TODO @dadodimauro: Verify if expiration should be in ms  # noqa: TD003
                 expiration=delay_seconds,  # TTL for this specific message
                 priority=message.priority,
                 headers={
@@ -307,9 +306,9 @@ class RabbitMQBroker(Broker):
             ):  # Prevent deadlock
                 async with self._channel_pool.acquire() as channel:
                     yield channel
-        except TimeoutError:
+        except TimeoutError as e:
             logger.error("Timeout acquiring channel from pool")
-            raise RuntimeError("Channel pool exhausted or deadlocked")
+            raise RuntimeError("Channel pool exhausted or deadlocked") from e
 
     async def connect(self) -> None:
         """Establish connection to the broker."""
@@ -556,7 +555,7 @@ class RabbitMQBroker(Broker):
 
                     messages.append(
                         DLQMessage(
-                            message_id=str(message.delivery_tag),
+                            message_id=dlq_data.task_id,
                             original_message=original_message,
                             failed_at=dlq_data.failed_at,
                             error=dlq_data.error,
@@ -602,7 +601,8 @@ class RabbitMQBroker(Broker):
                     if not message:
                         break
 
-                    if str(message.delivery_tag) == message_id:
+                    dlq_data = DLQData.model_validate_json(message.body)
+                    if dlq_data.task_id == message_id:
                         target_message = message
                         break
                     messages_to_requeue.append(message)
@@ -677,7 +677,8 @@ class RabbitMQBroker(Broker):
                     if not message:
                         break
 
-                    if str(message.delivery_tag) == message_id:
+                    dlq_data = DLQData.model_validate_json(message.body)
+                    if dlq_data.task_id == message_id:
                         await message.ack()  # Delete it
                         found = True
                         break
