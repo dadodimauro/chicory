@@ -9,6 +9,6 @@ try:
 except ImportError:
     raise RuntimeError(
         "Chicory CLI is not installed. "
-        "Please install it to it using 'pip install chicory[cli]' "
+        "Please install it using 'pip install chicory[cli]' "
         "or with 'pip install chicory[all]'."
     ) from None
