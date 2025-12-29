@@ -724,7 +724,7 @@ class RabbitMQBroker(Broker):
         async with self._acquire_channel() as channel:
             try:
                 rabbit_queue = await self._declare_queue(channel, queue)
-                # TODO @dadodimauro: https://github.com/dadodimauro/chicory/issues/3
+                # TODO @dadodimauro:  # noqa: TD003
                 # RabbitMQ doesn't expose unacked count via AMQP directly.
                 # This returns consumer count as a proxy - real implementation
                 # would need the Management API.
