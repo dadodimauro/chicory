@@ -1,4 +1,5 @@
 import subprocess
+import sys
 import venv
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -16,9 +17,27 @@ class TestOptionalImports:
         """Get the project root directory."""
         return Path(__file__).parent.parent.parent
 
+    def _get_venv_python(self, venv_dir: Path) -> Path:
+        """Get the Python executable path in a virtual environment."""
+        if sys.platform == "win32":
+            return venv_dir / "Scripts" / "python.exe"
+        return venv_dir / "bin" / "python"
+
+    def _get_venv_pip(self, venv_dir: Path) -> Path:
+        """Get the pip executable path in a virtual environment."""
+        if sys.platform == "win32":
+            return venv_dir / "Scripts" / "pip.exe"
+        return venv_dir / "bin" / "pip"
+
+    def _get_venv_script(self, venv_dir: Path, script_name: str) -> Path:
+        """Get a script executable path in a virtual environment."""
+        if sys.platform == "win32":
+            return venv_dir / "Scripts" / f"{script_name}.exe"
+        return venv_dir / "bin" / script_name
+
     def _run_in_venv(self, venv_dir: Path, command: str) -> subprocess.CompletedProcess:
         """Run a Python command in a virtual environment."""
-        python_bin = venv_dir / "bin" / "python"
+        python_bin = self._get_venv_python(venv_dir)
         return subprocess.run(
             [str(python_bin), "-c", command],
             capture_output=True,
@@ -29,7 +48,7 @@ class TestOptionalImports:
         self, venv_dir: Path, args: list[str]
     ) -> subprocess.CompletedProcess:
         """Run the chicory CLI app in a virtual environment."""
-        chicory_bin = venv_dir / "bin" / "chicory"
+        chicory_bin = self._get_venv_script(venv_dir, "chicory")
         return subprocess.run(
             [str(chicory_bin), *args],
             capture_output=True,
@@ -44,6 +63,7 @@ class TestOptionalImports:
             "from chicory import backend; print('RedisBackend' in backend.__all__)",
             "from chicory import broker; print('RabbitMQBroker' in broker.__all__)",
         ],
+        ids=["redis_broker", "redis_backend", "rabbitmq_broker"],
     )
     def test_base_install_without_extras(
         self, project_root: Path, import_command: str
@@ -56,7 +76,7 @@ class TestOptionalImports:
             venv.create(venv_dir, with_pip=True)
 
             # Install chicory without extras
-            pip_bin = venv_dir / "bin" / "pip"
+            pip_bin = self._get_venv_pip(venv_dir)
             subprocess.run(
                 [str(pip_bin), "install", "-e", str(project_root)],
                 capture_output=True,
@@ -116,6 +136,7 @@ class TestOptionalImports:
                 ],
             ),
         ],
+        ids=["redis", "rabbitmq", "all"],
     )
     def test_optional_extras_install(
         self,
@@ -132,7 +153,7 @@ class TestOptionalImports:
             venv.create(venv_dir, with_pip=True)
 
             # Install chicory with extra dependency
-            pip_bin = venv_dir / "bin" / "pip"
+            pip_bin = self._get_venv_pip(venv_dir)
             subprocess.run(
                 [str(pip_bin), "install", "-e", f"{project_root}[{extra}]"],
                 capture_output=True,
@@ -161,6 +182,7 @@ class TestOptionalImports:
     @pytest.mark.parametrize(
         "extra",
         [None, "cli", "all"],
+        ids=["no_extra", "cli", "all"],
     )
     def test_cli_install(self, project_root: Path, extra: str | None) -> None:
         """Test that CLI extra installs and works correctly."""
@@ -171,7 +193,7 @@ class TestOptionalImports:
             venv.create(venv_dir, with_pip=True)
 
             # Install chicory with cli extra
-            pip_bin = venv_dir / "bin" / "pip"
+            pip_bin = self._get_venv_pip(venv_dir)
             install_cmd = (
                 [str(pip_bin), "install", "-e", str(project_root)]
                 if extra is None
