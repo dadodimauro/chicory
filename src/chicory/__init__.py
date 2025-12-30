@@ -81,3 +81,10 @@ try:
     )
 except ImportError:
     pass
+
+try:
+    from chicory.backend.database import DatabaseBackend
+
+    __all__.append("DatabaseBackend")
+except ImportError:
+    pass

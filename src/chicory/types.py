@@ -238,3 +238,7 @@ class BrokerType(StrEnum):
 
 class BackendType(StrEnum):
     REDIS = "redis"
+    MSSQL = "mssql"
+    POSTGRES = "postgres"
+    SQLITE = "sqlite"
+    MYSQL = "mysql"

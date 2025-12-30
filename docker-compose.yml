@@ -28,8 +28,40 @@ services:
       timeout: 3s
       retries: 30
 
+  db:
+    image: postgres:17-alpine
+    environment:
+      - POSTGRES_USER=chicory
+      - POSTGRES_PASSWORD=chicory
+      - POSTGRES_DB=chicory
+      - POSTGRES_PORT=5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+      - ./migration-cli/migration-import:/migration-import:ro
+      - ./migration-cli/data/preprocessed:/migration-import:ro
+    ports:
+      - "5432:5432"
+    expose:
+      - 5432
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "pg_isready",
+          "-q",
+          "-d",
+          "chicory",
+          "-U",
+          "chicory",
+        ]
+      timeout: 40s
+      interval: 2s
+      retries: 20
+
 volumes:
   rabbitmq-log:
     driver: local
   rabbitmq-lib:
+    driver: local
+  postgres_data:
     driver: local

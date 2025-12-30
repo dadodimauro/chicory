@@ -5,7 +5,10 @@ from typing import Literal, Self
 
 from pydantic import (
     AmqpDsn,
+    AnyUrl,
     Field,
+    MySQLDsn,
+    PostgresDsn,
     RedisDsn,
     SecretStr,
     field_validator,
@@ -288,6 +291,305 @@ class RedisBackendConfig(BaseBackendConfig):
         )
 
 
+class PostgresBackendConfig(BaseBackendConfig):
+    """PostgreSQL result backend configuration."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="CHICORY_BACKEND_POSTGRES_",
+        extra="ignore",
+    )
+
+    host: str = Field(default="localhost", description="PostgreSQL host")
+    port: int = Field(default=5432, ge=1, le=65535, description="PostgreSQL port")
+    database: str = Field(default="chicory", description="PostgreSQL database name")
+    username: str = Field(default="chicory", description="PostgreSQL username")
+    password: SecretStr = Field(
+        default=SecretStr("chicory"), description="PostgreSQL password"
+    )
+    url: str | None = Field(
+        default=None,
+        description="Full PostgreSQL DSN (overrides other settings if set)",
+    )
+
+    echo: bool = Field(
+        default=False,
+        description="Enable SQL query logging",
+    )
+    pool_size: int = Field(
+        default=5,
+        ge=1,
+        description="Database connection pool size",
+    )
+    max_overflow: int = Field(
+        default=5,
+        ge=0,
+        description="Maximum overflow size for the connection pool",
+    )
+    pool_recycle: int = Field(
+        default=1800,
+        ge=0,
+        description="Recycle connections after this many seconds",
+    )
+    pool_timeout: int = Field(
+        default=30,
+        ge=1,
+        description="Timeout in seconds to wait for a connection from the pool",
+    )
+
+    @field_validator("url", mode="after")
+    @classmethod
+    def validate_url(cls, v: str | None) -> str | None:
+        if v is not None:
+            PostgresDsn(v)
+        return v
+
+    @property
+    def dsn(self) -> str:
+        """Build PostgreSQL DSN from config."""
+        if self.url:
+            return str(PostgresDsn(self.url))
+        return str(
+            PostgresDsn.build(
+                scheme="postgresql+asyncpg",
+                username=self.username,
+                password=self.password.get_secret_value() if self.password else None,
+                host=self.host,
+                port=self.port,
+                path=self.database,
+            )
+        )
+
+
+class MySQLBackendConfig(BaseBackendConfig):
+    """MySQL result backend configuration."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="CHICORY_BACKEND_MYSQL_",
+        extra="ignore",
+    )
+
+    host: str = Field(default="localhost", description="MySQL host")
+    port: int = Field(default=3306, ge=1, le=65535, description="MySQL port")
+    database: str = Field(default="chicory", description="MySQL database name")
+    username: str = Field(default="chicory", description="MySQL username")
+    password: SecretStr = Field(
+        default=SecretStr("chicory"), description="MySQL password"
+    )
+    url: str | None = Field(
+        default=None,
+        description="Full MySQL DSN (overrides other settings if set)",
+    )
+
+    echo: bool = Field(
+        default=False,
+        description="Enable SQL query logging",
+    )
+    pool_size: int = Field(
+        default=5,
+        ge=1,
+        description="Database connection pool size",
+    )
+    max_overflow: int = Field(
+        default=5,
+        ge=0,
+        description="Maximum overflow size for the connection pool",
+    )
+    pool_recycle: int = Field(
+        default=1800,
+        ge=0,
+        description="Recycle connections after this many seconds",
+    )
+    pool_timeout: int = Field(
+        default=30,
+        ge=1,
+        description="Timeout in seconds to wait for a connection from the pool",
+    )
+
+    @field_validator("url", mode="after")
+    @classmethod
+    def validate_url(cls, v: str | None) -> str | None:
+        if v is not None:
+            MySQLDsn(v)
+        return v
+
+    @property
+    def dsn(self) -> str:
+        """Build MySQL DSN from config."""
+        if self.url:
+            return str(MySQLDsn(self.url))
+        return str(
+            MySQLDsn.build(
+                scheme="mysql+aiomysql",
+                username=self.username,
+                password=self.password.get_secret_value() if self.password else None,
+                host=self.host,
+                port=self.port,
+                path=self.database,
+            )
+        )
+
+
+class MSSQLBackendConfig(BaseBackendConfig):
+    """MSSQL result backend configuration."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="CHICORY_BACKEND_MSSQL_",
+        extra="ignore",
+    )
+
+    host: str = Field(default="localhost", description="MSSQL host")
+    port: int = Field(default=1433, ge=1, le=65535, description="MSSQL port")
+    database: str = Field(default="chicory", description="MSSQL database name")
+    username: str = Field(default="chicory", description="MSSQL username")
+    password: SecretStr = Field(
+        default=SecretStr("chicory"), description="MSSQL password"
+    )
+    driver: str = Field(
+        default="ODBC Driver 18 for SQL Server",
+        description="ODBC driver name for MSSQL connection",
+    )
+    trust_server_certificate: bool = Field(
+        default=True,
+        description="Whether to trust the server certificate (for SSL connections)",
+    )
+    url: str | None = Field(
+        default=None,
+        description="Full MSSQL DSN (overrides other settings if set)",
+    )
+
+    echo: bool = Field(
+        default=False,
+        description="Enable SQL query logging",
+    )
+    pool_size: int = Field(
+        default=5,
+        ge=1,
+        description="Database connection pool size",
+    )
+    max_overflow: int = Field(
+        default=5,
+        ge=0,
+        description="Maximum overflow size for the connection pool",
+    )
+    pool_recycle: int = Field(
+        default=1800,
+        ge=0,
+        description="Recycle connections after this many seconds",
+    )
+    pool_timeout: int = Field(
+        default=30,
+        ge=1,
+        description="Timeout in seconds to wait for a connection from the pool",
+    )
+
+    @field_validator("url", mode="after")
+    @classmethod
+    def validate_url(cls, v: str | None) -> str | None:
+        if v is not None:
+            dsn = AnyUrl(v)
+            if dsn.scheme != "mssql+aioodbc":
+                raise ValueError("MSSQL DSN must use 'mssql+aioodbc' scheme")
+        return v
+
+    @field_validator("driver", mode="after")
+    @classmethod
+    def validate_driver(cls, v: str) -> str:
+        """Replace spaces with '+' for URL encoding."""
+        return v.replace(" ", "+")
+
+    @property
+    def dsn(self) -> str:
+        """Build MSSQL DSN from config."""
+        if self.url:
+            return str(AnyUrl(self.url))
+        return str(
+            AnyUrl.build(
+                scheme="mssql+aioodbc",
+                username=self.username,
+                password=self.password.get_secret_value() if self.password else None,
+                host=self.host,
+                port=self.port,
+                path=self.database,
+                query=(
+                    f"driver={self.driver}&TrustServerCertificate="
+                    f"{'yes' if self.trust_server_certificate else 'no'}"
+                ),
+            )
+        )
+
+
+class SQLiteBackendConfig(BaseBackendConfig):
+    """SQLite result backend configuration."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="CHICORY_BACKEND_SQLITE_",
+        extra="ignore",
+    )
+
+    file_path: str = Field(
+        default="chicory_results.db",
+        description="Path to SQLite database file",
+    )
+    url: str | None = Field(
+        default=None,
+        description="Full SQLite DSN (overrides other settings if set)",
+    )
+
+    echo: bool = Field(
+        default=False,
+        description="Enable SQL query logging",
+    )
+    pool_size: int = Field(
+        default=5,
+        ge=1,
+        description="Database connection pool size",
+    )
+    max_overflow: int = Field(
+        default=5,
+        ge=0,
+        description="Maximum overflow size for the connection pool",
+    )
+    pool_recycle: int = Field(
+        default=1800,
+        ge=0,
+        description="Recycle connections after this many seconds",
+    )
+    pool_timeout: int = Field(
+        default=30,
+        ge=1,
+        description="Timeout in seconds to wait for a connection from the pool",
+    )
+
+    @field_validator("url", mode="after")
+    @classmethod
+    def validate_url(cls, v: str | None) -> str | None:
+        if v is not None:
+            dsn = AnyUrl(v)
+            if dsn.scheme != "sqlite+aiosqlite":
+                raise ValueError("SQLite DSN must use 'sqlite+aiosqlite' scheme")
+        return v
+
+    @property
+    def dsn(self) -> str:
+        """Build SQLite DSN from config."""
+        if self.url:
+            return str(AnyUrl(self.url))
+        return str(
+            AnyUrl.build(
+                scheme="sqlite+aiosqlite",
+                host=self.file_path,
+            )
+        )
+
+
 class WorkerConfig(BaseSettings):
     """Worker process configuration."""
 
@@ -357,6 +659,10 @@ class BackendConfig(BaseSettings):
     )
 
     redis: RedisBackendConfig = Field(default_factory=RedisBackendConfig)
+    postgres: PostgresBackendConfig = Field(default_factory=PostgresBackendConfig)
+    mysql: MySQLBackendConfig = Field(default_factory=MySQLBackendConfig)
+    mssql: MSSQLBackendConfig = Field(default_factory=MSSQLBackendConfig)
+    sqlite: SQLiteBackendConfig = Field(default_factory=SQLiteBackendConfig)
 
 
 class ChicoryConfig(BaseSettings):

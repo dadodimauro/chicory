@@ -60,10 +60,16 @@ class TestOptionalImports:
         "import_command",
         [
             "from chicory import broker; print('RedisBroker' in broker.__all__)",
-            "from chicory import backend; print('RedisBackend' in backend.__all__)",
             "from chicory import broker; print('RabbitMQBroker' in broker.__all__)",
+            "from chicory import backend; print('RedisBackend' in backend.__all__)",
+            "from chicory import backend; print('DatabaseBackend' in backend.__all__)",
         ],
-        ids=["redis_broker", "redis_backend", "rabbitmq_broker"],
+        ids=[
+            "redis_broker",
+            "rabbitmq_broker",
+            "redis_backend",
+            "database_backend",
+        ],
     )
     def test_base_install_without_extras(
         self, project_root: Path, import_command: str
@@ -124,19 +130,56 @@ class TestOptionalImports:
                 ],
             ),
             (
+                "postgres",
+                [
+                    "from chicory.backend import DatabaseBackend; print('success')",
+                ],
+                [
+                    "from chicory import backend; print('DatabaseBackend' in backend.__all__)",  # noqa: E501
+                ],
+            ),
+            (
+                "mssql",
+                [
+                    "from chicory.backend import DatabaseBackend; print('success')",
+                ],
+                [
+                    "from chicory import backend; print('DatabaseBackend' in backend.__all__)",  # noqa: E501
+                ],
+            ),
+            (
+                "mysql",
+                [
+                    "from chicory.backend import DatabaseBackend; print('success')",
+                ],
+                [
+                    "from chicory import backend; print('DatabaseBackend' in backend.__all__)",  # noqa: E501
+                ],
+            ),
+            (
+                "sqlite",
+                [
+                    "from chicory.backend import DatabaseBackend; print('success')",
+                ],
+                [
+                    "from chicory import backend; print('DatabaseBackend' in backend.__all__)",  # noqa: E501
+                ],
+            ),
+            (
                 "all",
                 [
                     "from chicory.broker import RedisBroker, RabbitMQBroker; print('success')",  # noqa: E501
-                    "from chicory.backend import RedisBackend; print('success')",
+                    "from chicory.backend import RedisBackend, DatabaseBackend; print('success')",  # noqa: E501
                 ],
                 [
                     "from chicory import broker; print('RedisBroker' in broker.__all__)",  # noqa: E501
                     "from chicory import broker; print('RabbitMQBroker' in broker.__all__)",  # noqa: E501
                     "from chicory import backend; print('RedisBackend' in backend.__all__)",  # noqa: E501
+                    "from chicory import backend; print('DatabaseBackend' in backend.__all__)",  # noqa: E501
                 ],
             ),
         ],
-        ids=["redis", "rabbitmq", "all"],
+        ids=["redis", "rabbitmq", "postgres", "mssql", "mysql", "sqlite", "all"],
     )
     def test_optional_extras_install(
         self,

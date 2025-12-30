@@ -10,3 +10,11 @@ try:
     __all__.append("RedisBackend")
 except ImportError:
     pass
+
+
+try:
+    from .database import DatabaseBackend
+
+    __all__.append("DatabaseBackend")
+except ImportError:
+    pass

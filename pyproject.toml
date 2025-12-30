@@ -41,11 +41,31 @@ cli = [
 rabbitmq = [
     "aio-pika>=9.5.8",
 ]
-
+postgres = [
+    "sqlalchemy[asyncio]>=2.0.45",
+    "asyncpg>=0.31.0",
+]
+mysql = [
+    "sqlalchemy[asyncio]>=2.0.45",
+    "aiomysql>=0.3.2",
+]
+sqlite = [
+    "sqlalchemy[asyncio]>=2.0.45",
+    "aiosqlite>=0.22.1",
+]
+mssql = [
+    "sqlalchemy[asyncio]>=2.0.45",
+    "aioodbc>=0.5.0",
+]
 all = [
     "redis>=7.1.0",
     "typer>=0.20.1",
     "aio-pika>=9.5.8",
+    "sqlalchemy[asyncio]>=2.0.45",
+    "asyncpg>=0.31.0",
+    "aiomysql>=0.3.2",
+    "aiosqlite>=0.22.1",
+    "aioodbc>=0.5.0",
 ]
 
 [dependency-groups]

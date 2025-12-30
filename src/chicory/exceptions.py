@@ -53,3 +53,12 @@ class BrokerConnectionError(ChicoryError):
     """Raised when broker connection fails."""
 
     pass
+
+
+class DbPoolExhaustedException(Exception):
+    """Raised when the database connection pool is exhausted."""
+
+    message: str
+
+    def __init__(self, message: str):
+        self.message = message
