@@ -13,8 +13,8 @@ except ImportError:
 
 
 try:
-    from .database import DatabaseBackend
+    from .database import DatabaseBackend, DatabaseBackendConfig
 
-    __all__.append("DatabaseBackend")
+    __all__.extend(["DatabaseBackend", "DatabaseBackendConfig"])
 except ImportError:
     pass

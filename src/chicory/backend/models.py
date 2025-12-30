@@ -63,6 +63,7 @@ class TaskResultModel(Base):
         nullable=False,
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
+        index=True,
     )
 
 
@@ -83,4 +84,5 @@ class WorkerHeartbeatModel(Base):
         nullable=False,
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
+        index=True,
     )
