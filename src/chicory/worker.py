@@ -31,8 +31,6 @@ if TYPE_CHECKING:
     from chicory.config import WorkerConfig
     from chicory.task import Task
 
-logger = logging.getLogger("chicory.worker")
-
 
 class Worker:
     """
@@ -79,7 +77,9 @@ class Worker:
         self._tasks_processed = 0
         self._tasks_failed = 0
 
-        logger.info(
+        self._logger = logging.getLogger(f"chicory.worker.{self.worker_id}")
+
+        self._logger.info(
             f"Initialized worker {self.worker_id}",
             extra={"worker_id": self.worker_id, "queue": self.queue},
         )
@@ -91,10 +91,10 @@ class Worker:
         The worker will run in the background. Call stop() to gracefully shutdown.
         """
         if self._running:
-            logger.warning("Worker is already running")
+            self._logger.warning("Worker is already running")
             return
 
-        logger.info(
+        self._logger.info(
             f"Starting worker with concurrency={self.concurrency}",
             extra={"worker_id": id(self)},
         )
@@ -116,13 +116,13 @@ class Worker:
                     If None, uses config.shutdown_timeout
         """
         if not self._running:
-            logger.warning("Worker is not running")
+            self._logger.warning("Worker is not running")
             return
 
         if timeout is None:
             timeout = self.config.shutdown_timeout
 
-        logger.info("Stopping worker...")
+        self._logger.info("Stopping worker...")
         self._running = False
         self.app.broker.stop()
 
@@ -137,19 +137,19 @@ class Worker:
             try:
                 await asyncio.wait_for(self._consume_task, timeout=5.0)
             except TimeoutError:
-                logger.warning("Consume loop did not finish in time")
+                self._logger.warning("Consume loop did not finish in time")
                 self._consume_task.cancel()
 
         # Wait for running tasks with timeout
         if self._tasks:
-            logger.info(f"Waiting for {len(self._tasks)} tasks to complete...")
+            self._logger.info(f"Waiting for {len(self._tasks)} tasks to complete...")
             try:
                 await asyncio.wait_for(
                     asyncio.gather(*self._tasks, return_exceptions=True),
                     timeout=timeout,
                 )
             except TimeoutError:
-                logger.warning(
+                self._logger.warning(
                     f"Tasks did not complete within {timeout}s, cancelling..."
                 )
                 for task in self._tasks:
@@ -164,7 +164,7 @@ class Worker:
         """
         Periodic heartbeat sender.
         """
-        logger.info(
+        self._logger.info(
             f"Starting heartbeat loop (interval={self.heartbeat_interval}s)",
             extra={"worker_id": self.worker_id},
         )
@@ -174,9 +174,9 @@ class Worker:
                 await self._send_heartbeat()
                 await asyncio.sleep(self.heartbeat_interval)
         except asyncio.CancelledError:
-            logger.debug("Heartbeat loop cancelled")
+            self._logger.debug("Heartbeat loop cancelled")
         finally:
-            logger.info("Heartbeat loop exited")
+            self._logger.info("Heartbeat loop exited")
 
     async def _send_heartbeat(self, is_running: bool = True) -> None:
         """
@@ -196,13 +196,13 @@ class Worker:
                 self.worker_id, heartbeat, ttl=self.heartbeat_ttl
             )
 
-            logger.debug(
+            self._logger.debug(
                 f"Heartbeat sent: {self._tasks_processed} processed, "
                 f"{len(self._tasks)} active",
                 extra={"worker_id": self.worker_id},
             )
         except Exception:
-            logger.exception("Failed to send heartbeat")
+            self._logger.exception("Failed to send heartbeat")
 
     async def run(self) -> None:
         """
@@ -224,7 +224,7 @@ class Worker:
             signals_registered = True
         except NotImplementedError:  # pragma: no cover
             # Windows doesn't support signal handlers with ProactorEventLoop
-            logger.warning(
+            self._logger.warning(
                 "Signal handlers not supported on this platform. "
                 "Use Ctrl+C or stop() method to terminate."
             )
@@ -238,7 +238,7 @@ class Worker:
                     await self._consume_task
         except KeyboardInterrupt:  # pragma: no cover
             # Handle Ctrl+C on Windows
-            logger.info("Keyboard interrupt received")
+            self._logger.info("Keyboard interrupt received")
             await self.stop()
         finally:
             # Clean up signal handlers if they were registered
@@ -248,16 +248,16 @@ class Worker:
 
     def _handle_shutdown(self) -> None:
         """Handle shutdown signal."""
-        logger.info("Shutdown signal received")
+        self._logger.info("Shutdown signal received")
         if self._running:
             asyncio.create_task(self.stop())
 
     async def _shutdown(self) -> None:
         """Internal cleanup."""
-        logger.info("Shutting down worker...")
+        self._logger.info("Shutting down worker...")
         self._executor.shutdown(wait=True)
         await self.app.disconnect()
-        logger.info("Worker shutdown complete")
+        self._logger.info("Worker shutdown complete")
 
     async def _consume_loop(self) -> None:
         """Main consumption loop."""
@@ -270,11 +270,11 @@ class Worker:
                 t.add_done_callback(self._tasks.discard)
                 self._tasks.add(t)
         except Exception:
-            logger.exception("Error in consume loop")
+            self._logger.exception("Error in consume loop")
             raise
         finally:
             self._running = False
-            logger.debug("Consume loop exited")
+            self._logger.debug("Consume loop exited")
 
     async def _process_envelope(self, envelope: TaskEnvelope) -> None:
         """Process a single task envelope."""
@@ -286,13 +286,13 @@ class Worker:
             "task_name": message.name,
         }
 
-        logger.info("Processing task", extra=log_context)
+        self._logger.info("Processing task", extra=log_context)
 
         async with self._semaphore:
             try:
                 task = self.app.get_task(message.name)
             except Exception as e:
-                logger.error(f"Task not found: {message.name}", extra=log_context)
+                self._logger.error(f"Task not found: {message.name}", extra=log_context)
                 await self._store_failure(task_id, e)
                 await self._move_to_dlq(envelope, str(e))
                 return
@@ -317,7 +317,7 @@ class Worker:
                     await self.app.broker.ack(envelope)
 
                 self._tasks_processed += 1
-                logger.info("Task completed successfully", extra=log_context)
+                self._logger.info("Task completed successfully", extra=log_context)
 
             except RetryError as e:
                 self._tasks_failed += 1
@@ -326,16 +326,20 @@ class Worker:
                 self._tasks_failed += 1
                 await self._store_failure(task_id, e)
                 await self._move_to_dlq(envelope, str(e))
-                logger.error("Max retries exceeded, moved to DLQ", extra=log_context)
+                self._logger.error(
+                    "Max retries exceeded, moved to DLQ", extra=log_context
+                )
             except ValidationError as e:
                 # Validation errors should not be retried
                 self._tasks_failed += 1
                 await self._store_failure(task_id, e)
                 await self._move_to_dlq(envelope, str(e))
-                logger.error(f"Validation error, moved to DLQ: {e}", extra=log_context)
+                self._logger.error(
+                    f"Validation error, moved to DLQ: {e}", extra=log_context
+                )
             except Exception as e:
                 self._tasks_failed += 1
-                logger.exception("Task failed with exception", extra=log_context)
+                self._logger.exception("Task failed with exception", extra=log_context)
                 await self._handle_exception_with_policy(
                     envelope, message, task, retry_policy, e
                 )
@@ -398,7 +402,7 @@ class Worker:
 
         # Check if this exception should be retried
         if not retry_policy.should_retry(error):
-            logger.info(
+            self._logger.info(
                 f"Exception {type(error).__name__} is not retryable, moving to DLQ",
                 extra=log_context,
             )
@@ -408,7 +412,7 @@ class Worker:
 
         # Check if we have retries remaining
         if message.retries >= retry_policy.max_retries:
-            logger.error(
+            self._logger.error(
                 f"Max retries ({retry_policy.max_retries}) exceeded, moving to DLQ",
                 extra=log_context,
             )
@@ -416,7 +420,7 @@ class Worker:
             await self._move_to_dlq(envelope, str(error))
             return
 
-        logger.warning(
+        self._logger.warning(
             f"Task failed with {type(error).__name__}, scheduling retry "
             f"{message.retries + 1}/{retry_policy.max_retries}",
             extra={**log_context, "error": str(error)},
@@ -468,7 +472,7 @@ class Worker:
         if task.options.delivery_mode == DeliveryMode.AT_LEAST_ONCE:
             await self.app.broker.ack(envelope)
 
-        logger.info(
+        self._logger.info(
             (
                 f"Task {message.name} scheduled for retry "
                 f"{new_message.retries}/{retry_policy.max_retries}"
@@ -482,7 +486,7 @@ class Worker:
             # Check if broker supports DLQ
             if self.use_dead_letter_queue:
                 await self.app.broker.move_to_dlq(envelope, error, self.queue)
-                logger.info(
+                self._logger.info(
                     f"Task {envelope.message.id} moved to DLQ",
                     extra={
                         "task_id": envelope.message.id,
@@ -492,7 +496,7 @@ class Worker:
             else:
                 await self._finalize_failure(envelope, task=None)
         except Exception:
-            logger.exception("Failed to move message to DLQ")
+            self._logger.exception("Failed to move message to DLQ")
             # Still try to ack to prevent infinite loop
             await self._finalize_failure(envelope, task=None)
 
