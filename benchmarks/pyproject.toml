@@ -1,0 +1,20 @@
+[project]
+name = "benchmarks"
+version = "0.1.0"
+description = "Benchmarks"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "chicory",
+    "redis>=7.1.0",
+    "taskiq-redis>=1.2.1",
+    "typer>=0.20.1",
+]
+
+[tool.uv.sources]
+chicory = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.9",
+]

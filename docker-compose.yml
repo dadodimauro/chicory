@@ -1,6 +1,7 @@
 services:
   redis:
-    image: redis
+    image: redis:latest
+    command: ["redis-server", "--maxclients", "40000"]
     ports:
       - 6379:6379
     healthcheck:
@@ -11,6 +12,7 @@ services:
 
   redis-insight:
     image: redis/redisinsight:latest
+    stop_grace_period: 0s
     depends_on:
       - redis
     environment:

@@ -4,7 +4,10 @@ import asyncio
 import importlib
 import importlib.metadata
 import logging
+import signal
 import sys
+import time
+from multiprocessing import Process
 from pathlib import Path
 from typing import Literal
 
@@ -43,8 +46,11 @@ def worker(
     app_path: str = typer.Argument(
         ..., help="Path to the Chicory app (e.g., 'myapp.tasks:app')"
     ),
+    workers_count: int = typer.Option(
+        1, "--workers", "-w", help="Number of worker processes"
+    ),
     concurrency: int = typer.Option(
-        4, "--concurrency", "-c", help="Number of concurrent workers"
+        32, "--concurrency", "-c", help="Number of concurrent workers"
     ),
     queue: str = typer.Option("default", "--queue", "-q", help="Queue to consume from"),
     use_dead_letter_queue: bool = typer.Option(
@@ -61,6 +67,9 @@ def worker(
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = typer.Option(
         "INFO", "--log-level", help="Set the logging level (e.g., DEBUG, INFO, WARNING)"
     ),
+    shutdown_timeout: float = typer.Option(
+        10.0, "--shutdown-timeout", help="Timeout in seconds for graceful shutdown"
+    ),
 ) -> None:
     """
     Start a Chicory worker.
@@ -72,33 +81,74 @@ def worker(
 
     CLI options override environment/config settings.
     """
-    chicory_app = _import_app(app_path)
 
-    worker_config = chicory_app.config.worker
-
-    effective_log_level = log_level or worker_config.log_level
     logging.basicConfig(
-        level=getattr(logging, effective_log_level, logging.INFO),
+        level=getattr(logging, log_level, logging.INFO),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    worker_instance = Worker(
-        chicory_app,
-        config=chicory_app.config.worker,
-    )
-
     typer.echo(f"Starting Chicory worker for {app_path}")
-    typer.echo(f"Log Level: {effective_log_level}")
-    typer.echo(f"Concurrency: {worker_instance.concurrency}")
-    typer.echo(f"Queue: {worker_instance.queue}")
-    typer.echo(f"Heartbeat Interval: {worker_instance.heartbeat_interval}s")
-    typer.echo(f"Heartbeat TTL: {worker_instance.heartbeat_ttl}s")
+    typer.echo(f"Log Level: {log_level}")
+    typer.echo(f"Workers: {workers}")
+    typer.echo(f"Concurrency: {concurrency}")
+    typer.echo(f"Queue: {queue}")
+    typer.echo(f"Heartbeat Interval: {heartbeat_interval}s")
+    typer.echo(f"Heartbeat TTL: {heartbeat_ttl}s")
     typer.echo(
-        "Dead Letter Queue: "
-        f"{'Enabled' if worker_instance.use_dead_letter_queue else 'Disabled'}"
+        f"Dead Letter Queue: {'Enabled' if use_dead_letter_queue else 'Disabled'}"
     )
 
-    asyncio.run(worker_instance.run())
+    def run_worker() -> None:
+        chicory_app = _import_app(app_path)
+
+        worker_config = chicory_app.config.worker
+        worker_config.concurrency = concurrency
+        worker_config.queue = queue
+        worker_config.use_dead_letter_queue = use_dead_letter_queue
+        worker_config.heartbeat_interval = heartbeat_interval
+        worker_config.heartbeat_ttl = heartbeat_ttl
+        worker_config.log_level = log_level
+
+        asyncio.run(Worker(chicory_app, config=worker_config).run())
+
+    # No need to use multiprocessing if only one worker is requested
+    if workers_count == 1:
+        run_worker()
+        return
+
+    processes: list[Process] = []
+    for _ in range(workers_count):
+        p = Process(target=run_worker)
+        p.start()
+        processes.append(p)
+
+    shutdown_event = False
+
+    def signal_handler(signum, frame):
+        nonlocal shutdown_event
+        typer.echo("Received termination signal. Shutting down workers...")
+        shutdown_event = True
+
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+
+    # Wait for termination signal
+    try:
+        while not shutdown_event:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        typer.echo("Keyboard interrupt received. Shutting down workers...")
+
+    # Terminate all worker processes
+    for p in processes:
+        p.terminate()
+
+    # Wait for workers to finish
+    for p in processes:
+        p.join(timeout=shutdown_timeout)
+        if p.is_alive():
+            typer.echo(f"Force killing worker {p.pid}")
+            p.kill()
 
 
 @app.command()
