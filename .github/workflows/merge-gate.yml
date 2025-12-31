@@ -5,12 +5,48 @@ on:
 
 jobs:
   full-tests:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.11", "3.12", "3.13", "3.14"]
+
+    services:
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 1s
+          --health-timeout 3s
+          --health-retries 30
+
+      db:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: chicory
+          POSTGRES_PASSWORD: chicory
+          POSTGRES_DB: chicory
+          POSTGRES_PORT: 5432
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -q -d chicory -U chicory"
+          --health-interval 2s
+          --health-timeout 40s
+          --health-retries 20
+
+      rabbitmq:
+        image: rabbitmq:3-management-alpine
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics check_port_connectivity"
+          --health-interval 1s
+          --health-timeout 3s
+          --health-retries 30
 
     steps:
       - uses: actions/checkout@v4
@@ -22,9 +58,6 @@ jobs:
 
       - name: Install dependencies
         run: make init
-
-      - name: Start docker services
-        run: make up
 
       - name: Run ALL tests
         run: make test

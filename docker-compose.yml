@@ -3,6 +3,11 @@ services:
     image: redis
     ports:
       - 6379:6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
 
   redis-insight:
     image: redis/redisinsight:latest
@@ -13,7 +18,7 @@ services:
       - RI_REDIS_PORT=6379
     ports:
       - 5540:5540
-
+      
   rabbitmq:
     image: rabbitmq:4.2-management
     ports:
